@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# EyePACS / Kaggle Diabetic Retinopathy Detection (2015), 1024 px mirror.
+#
+#   python scripts/fetch_dataset.py eyepacs
+#   python -m dr --config configs/eyepacs.yaml all
+#
+# 35 126 images from 17 563 patients, two eyes each ("10_left" / "10_right").
+# This is the cohort where patient-level splitting actually matters: both eyes
+# are photographed in one session, on one camera, in one lighting condition.
+# ---------------------------------------------------------------------------
+
+seed: 42
+
+paths:
+  raw_dir: ~/dr-data/eyepacs/resized_train_cropped/resized_train_cropped
+  labels_csv: ~/dr-data/eyepacs/trainLabels.csv
+  interim_dir: data/interim/eyepacs
+  processed_dir: data/processed/eyepacs
+  artifacts_dir: artifacts/eyepacs
+  reports_dir: reports/eyepacs
+
+data:
+  dataset: eyepacs
+  image_glob: "**/*"
+  group_regex: null                 # the adapter's "^(\d+)_(?:left|right)$" is right
+  drop_ungradable: true             # real EyePACS contains genuinely ungradable frames
+  # Whole patients are sampled, never single eyes - see subsample_by_patient.
+  # Raise to null for the full cohort (~45 min of feature extraction on 20 cores).
+  max_images: 6000
+  # prevalence | balanced. PPV, NPV, specificity-at-sensitivity and QWK are all
+  # functions of the class balance, so the default keeps the cohort's own.
+  subsample_strategy: prevalence
+
+features:
+  work_size: 512
+  clahe_clip: 0.02
+  clahe_kernel_fraction: 0.125
+  vessel_sigmas: [1.0, 2.0, 3.0, 4.0]
+  glcm_distances: [1, 3]
+  glcm_angles_deg: [0, 45, 90, 135]
+  lbp_radius: 2
+  lbp_points: 8
+  n_zones: 4
+  n_jobs: -1
+  cache: true
+
+quality:
+  # Real fundus photographs are far more variable than the synthetic ones:
+  # small pupils, cataract haze, flash artefacts, a few entirely black frames.
+  min_mask_fraction: 0.15
+  min_focus: 2.0e-5
+  max_mean_brightness: 0.93
+  min_mean_brightness: 0.04
+
+  # Cohort-relative gradability: flag the worst this-fraction on brightness and
+  # on focus. The absolute floors above cannot adapt to a camera - on real
+  # EyePACS they fired on zero of 6000 images - so they are only a safety net.
+  drop_quantile: 0.01
+modeling:
+  test_size: 0.25
+  cv_folds: 5
+  # 4500 training eyes make each fit ~40x more expensive than on the synthetic
+  # cohort, and nested CV re-runs the whole search inside every outer fold.
+  # 15 draws keeps the full protocol under ~1.5 h on 20 cores; raise it if you
+  # have the time, the ranking does not change.
+  n_search_iter: 15
+  nested_cv: true
+  nested_outer_folds: 5
+  n_bootstrap: 2000
+  primary_metric: qwk
+  referable_threshold_grade: 2
+  target_sensitivity: 0.90
+  models: [logreg, random_forest, hist_gbm, ordinal_gbm]
+  permutation_repeats: 15

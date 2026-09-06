@@ -1,0 +1,12 @@
+# Normalise line endings so the repository is identical on Windows, macOS and Linux.
+* text=auto eol=lf
+
+# Binary assets must never be touched by EOL conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.parquet binary
+*.joblib binary
+
+# Notebooks are JSON: diff them as text but do not let GitHub count them as code.
+*.ipynb text linguist-documentation

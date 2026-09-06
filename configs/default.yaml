@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# Configuration for the diabetic-retinopathy grading pipeline.
+# Every run writes a copy of the resolved config next to its artefacts, so any
+# number in the report can be traced back to the settings that produced it.
+# ---------------------------------------------------------------------------
+
+seed: 42
+
+paths:
+  raw_dir: data/raw                 # fundus images live here (any nesting)
+  labels_csv: null                  # ground-truth CSV; null => dataset default
+  interim_dir: data/interim
+  processed_dir: data/processed
+  artifacts_dir: artifacts
+  reports_dir: reports
+
+data:
+  # aptos | eyepacs | messidor2 | idrid | generic | synthetic
+  dataset: synthetic
+  image_glob: "**/*"                # any png/jpg/jpeg/tif/bmp below raw_dir
+  # Column names for `generic`; the adapters below auto-detect for known sets.
+  id_column: null
+  label_column: null
+  # Regex used to derive a patient/eye group from the image id. The first
+  # capturing group becomes the group key. Leakage control depends on this.
+  group_regex: null                 # e.g. "^(\\d+)_(?:left|right)$" for EyePACS
+  drop_ungradable: true             # discard images that fail quality control
+  max_images: null                  # cap dataset size (debugging)
+
+synthetic:
+  n_patients: 160                   # two eyes each => 320 images
+  image_size: 512
+  jpeg_quality: 92
+  grade_prevalence: [0.49, 0.10, 0.27, 0.08, 0.06]   # ~APTOS-2019 prevalence
+
+features:
+  work_size: 512                    # images are resized to this before analysis
+  clahe_clip: 0.02
+  clahe_kernel_fraction: 0.125
+  vessel_sigmas: [1.0, 2.0, 3.0, 4.0]
+  glcm_distances: [1, 3]
+  glcm_angles_deg: [0, 45, 90, 135]
+  lbp_radius: 2
+  lbp_points: 8
+  n_zones: 4                        # concentric retinal zones
+  n_jobs: -1
+  cache: true                       # resumable per-image cache
+
+quality:
+  min_mask_fraction: 0.20           # retina must fill >= 20 % of the frame
+  min_focus: 3.0e-5                 # variance of Laplacian on [0,1] image
+  max_mean_brightness: 0.92
+  min_mean_brightness: 0.06
+
+  # Cohort-relative gradability: flag the worst this-fraction on brightness and
+  # on focus. The absolute floors above cannot adapt to a camera - on real
+  # EyePACS they fired on zero of 6000 images - so they are only a safety net.
+  drop_quantile: 0.01
+
+modeling:
+  test_size: 0.25                   # group-aware, stratified hold-out
+  cv_folds: 5
+  n_search_iter: 30                 # RandomizedSearchCV budget per model
+  nested_cv: true                   # unbiased generalisation estimate
+  nested_outer_folds: 5
+  n_bootstrap: 2000                 # bootstrap CIs on the hold-out set
+  primary_metric: qwk               # quadratic weighted kappa
+  referable_threshold_grade: 2      # grade >= 2 => refer to ophthalmologist
+  target_sensitivity: 0.90          # screening operating point
+  models: [logreg, random_forest, hist_gbm, ordinal_gbm]
+  permutation_repeats: 20

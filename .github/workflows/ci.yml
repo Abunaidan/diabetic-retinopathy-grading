@@ -1,0 +1,59 @@
+name: tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Unit tests
+        run: pytest -q -m "not slow"
+
+      - name: End-to-end tests
+        run: pytest -q -m slow
+
+      - name: Smoke-run the whole pipeline
+        run: |
+          python -m dr --n-patients 24 --work-size 224 --search-iter 3 \
+                       --cv-folds 3 --bootstrap 200 --no-nested-cv all
+
+      - name: Check the artefacts exist
+        run: |
+          test -f artifacts/results.json
+          test -f artifacts/model.joblib
+          test -f reports/REPORT.md
+          ls reports/figures/*.png
+
+      - name: Score new images with the saved model
+        run: python -m dr predict data/raw/images --out /tmp/predictions.csv
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-py${{ matrix.python-version }}
+          path: |
+            reports/
+            artifacts/results.json
+          retention-days: 7

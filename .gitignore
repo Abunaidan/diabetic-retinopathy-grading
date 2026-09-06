@@ -1,0 +1,49 @@
+# Virtualenv and Python noise
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+/build/
+/dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Patient data never enters version control.
+# Cohorts are downloaded to ~/dr-data by scripts/fetch_dataset.py; the manifest,
+# feature cache and feature matrices are all derived from them and regenerable.
+#
+# The leading slash is load-bearing: an unanchored 'data/' also matches
+# src/dr/data/, which silently excluded an entire package from the repository.
+/data/
+
+# Trained model binaries and run logs: large, opaque, and reproducible from the
+# configs. The reports and results.json they produce ARE committed.
+*.joblib
+artifacts/**/run.log
+# ad-hoc `dr predict` output; the hold-out test_predictions.csv ARE kept
+artifacts/**/predictions.csv
+
+# Credentials
+kaggle.json
+.kaggle/
+*.pem
+*.key
+
+# Editor / tooling state that is personal rather than project-level
+.claude/
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/shelf/
+.idea/dictionaries/
+.idea/httpRequests/
+.DS_Store
+Thumbs.db
+
+# IDE and backup folders
+.idea/
+.git_old/
+.git_old/
+.idea/
+.git_old/
+.idea/
